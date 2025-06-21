@@ -1,7 +1,7 @@
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 from app.extensions import db
-from app.models.example import User
+from app.models.user import User
 
 admin_panel = Admin(name='Admin Panel', template_mode='bootstrap4')
 

@@ -23,3 +23,30 @@ def register():
         return jsonify(user.serialize()), 201
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 400
+
+
+@users_bp.route("/users/<int:user_id>", methods=["GET"])
+def get_user(user_id):
+    """
+    Fetch a user by their ID.
+    Returns 404 if not found.
+    """
+    user = UserService.get_user_by_id(user_id)
+
+    if not user:
+        return {"error": "User not found"}, 404
+
+    return user.serialize(), 200
+
+# @users_bp.route("/users/<int:user_id>", methods=["GET"])
+# def get_user(user_id):
+#     logging.warning(f"🔍 Looking up user with ID: {user_id}")
+
+#     user = UserService.get_user_by_id(user_id)
+
+#     logging.warning(f"🧠 Result from service: {user}")
+
+#     if not user:
+#         return {"error": "User not found"}, 404
+
+#     return user.serialize(), 200
