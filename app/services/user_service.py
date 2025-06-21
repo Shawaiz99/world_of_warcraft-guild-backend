@@ -1,6 +1,7 @@
 from app.repositories.user_repository import UserRepository
 from app.models.user import User
 from typing import Optional
+from app.utils.security import hash_password
 
 class UserService:
     @staticmethod
@@ -13,7 +14,8 @@ class UserService:
         if existing_user:
             raise ValueError("Email is already registered.")
 
-        return UserRepository.create_user(username, email, password)
+        hashed_password = hash_password(password)
+        return UserRepository.create_user(username, email, hashed_password)
 
     @staticmethod
     def get_user_by_id(user_id: int) -> Optional[User]:
