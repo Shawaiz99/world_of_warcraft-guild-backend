@@ -2,6 +2,8 @@ from app.repositories.user_repository import UserRepository
 from app.models.user import User
 from typing import Optional
 from app.utils.security import hash_password
+from app.utils.security import verify_password
+
 
 class UserService:
     @staticmethod
@@ -16,6 +18,17 @@ class UserService:
 
         hashed_password = hash_password(password)
         return UserRepository.create_user(username, email, hashed_password)
+
+    @staticmethod
+    def login(email: str, password: str) -> User:
+        """
+        Authenticates a user by verifying email and password.
+        Returns the user if valid, else raises ValueError.
+        """
+        user = UserRepository.get_by_email(email)
+        if not user or not verify_password(password, user.password):
+            raise ValueError("Invalid email or password")
+        return user
 
     @staticmethod
     def get_user_by_id(user_id: int) -> Optional[User]:
