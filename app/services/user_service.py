@@ -1,8 +1,7 @@
+from typing import Optional
 from app.repositories.user_repository import UserRepository
 from app.models.user import User
-from typing import Optional
-from app.utils.security import hash_password
-from app.utils.security import verify_password
+from app.utils.security import hash_password, verify_password, generate_token
 
 
 class UserService:
@@ -20,15 +19,17 @@ class UserService:
         return UserRepository.create_user(username, email, hashed_password)
 
     @staticmethod
-    def login(email: str, password: str) -> User:
+    def login(email: str, password: str) -> tuple[User, str]:
         """
-        Authenticates a user by verifying email and password.
-        Returns the user if valid, else raises ValueError.
+        Authenticates a user and returns the user and JWT token.
+        Raises ValueError if credentials are invalid.
         """
         user = UserRepository.get_by_email(email)
         if not user or not verify_password(user.password, password):
             raise ValueError("Invalid email or password")
-        return user
+
+        token = generate_token(user.id)
+        return user, token
 
     @staticmethod
     def get_user_by_id(user_id: int) -> Optional[User]:
