@@ -46,3 +46,6 @@ Thumbs.db
 
 # Ignore development-only test scripts
 app/dev/
+
+#Ignore the pyache in the utils
+*.pyc

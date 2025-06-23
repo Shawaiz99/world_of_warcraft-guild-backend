@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.services.user_service import UserService
+from app.utils.auth import token_required
 
 users_bp = Blueprint("users", __name__)
 
@@ -61,3 +62,16 @@ def login():
         }), 200
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 401
+
+
+@users_bp.route("/protected", methods=["GET"])
+@token_required
+def protected_route():
+    """
+    A test route that requires a valid JWT.
+    Returns the user_id from the token.
+    """
+    return jsonify({
+        "message": "Access granted!",
+        "user_id": request.user_id
+    }), 200
