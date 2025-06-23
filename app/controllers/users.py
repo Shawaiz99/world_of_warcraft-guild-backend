@@ -3,6 +3,7 @@ from app.services.user_service import UserService
 
 users_bp = Blueprint("users", __name__)
 
+
 @users_bp.route("/register", methods=["POST"])
 def register():
     """
@@ -34,6 +35,26 @@ def get_user(user_id):
     user = UserService.get_user_by_id(user_id)
 
     if not user:
-        return {"error": "User not found"}, 404
+        return jsonify({"error": "User not found"}), 404
 
     return user.serialize(), 200
+
+
+@users_bp.route("/login", methods=["POST"])
+def login():
+    """
+    Logs in a user by verifying credentials.
+    Expects JSON: { "email": ..., "password": ... }
+    """
+    data = request.get_json() or {}
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        return jsonify({"error": "Missing email or password"}), 400
+
+    try:
+        user = UserService.login(email, password)
+        return jsonify(user.serialize()), 200
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 401
