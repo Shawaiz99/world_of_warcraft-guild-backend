@@ -37,16 +37,3 @@ def get_user(user_id):
         return {"error": "User not found"}, 404
 
     return user.serialize(), 200
-
-# @users_bp.route("/users/<int:user_id>", methods=["GET"])
-# def get_user(user_id):
-#     logging.warning(f"🔍 Looking up user with ID: {user_id}")
-
-#     user = UserService.get_user_by_id(user_id)
-
-#     logging.warning(f"🧠 Result from service: {user}")
-
-#     if not user:
-#         return {"error": "User not found"}, 404
-
-#     return user.serialize(), 200
