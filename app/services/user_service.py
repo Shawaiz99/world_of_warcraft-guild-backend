@@ -26,7 +26,7 @@ class UserService:
         Returns the user if valid, else raises ValueError.
         """
         user = UserRepository.get_by_email(email)
-        if not user or not verify_password(password, user.password):
+        if not user or not verify_password(user.password, password):
             raise ValueError("Invalid email or password")
         return user
 
