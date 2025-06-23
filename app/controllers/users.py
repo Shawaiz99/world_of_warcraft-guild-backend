@@ -54,7 +54,10 @@ def login():
         return jsonify({"error": "Missing email or password"}), 400
 
     try:
-        user = UserService.login(email, password)
-        return jsonify(user.serialize()), 200
+        user, token = UserService.login(email, password)
+        return jsonify({
+            "user": user.serialize(),
+            "token": token
+        }), 200
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 401
