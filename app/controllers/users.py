@@ -3,7 +3,7 @@ from app.utils.auth import requires_roles
 from app.services.user_service import UserService
 from app.utils.auth import token_required
 
-users_bp = Blueprint("users", __name__)
+users_bp = Blueprint("users_bp", __name__)
 
 
 @users_bp.route("/register", methods=["POST"])

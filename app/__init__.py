@@ -12,7 +12,9 @@ def create_app(env: str | None = None) -> Flask:
     db.init_app(app)
     migrate.init_app(app, db)
     cors.init_app(app)
-    init_admin(app)
+    
+    if not app.config.get("TESTING"):
+        init_admin(app)  # Only load Flask-Admin outside of tests
     
     # Register error handlers
     register_error_handlers(app)
