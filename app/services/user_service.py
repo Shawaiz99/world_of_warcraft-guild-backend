@@ -28,7 +28,7 @@ class UserService:
         if not user or not verify_password(user.password, password):
             raise ValueError("Invalid email or password")
 
-        token = generate_token(user.id)
+        token = generate_token(user.id, user.role.value)
         return user, token
 
     @staticmethod
