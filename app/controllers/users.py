@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from app.utils.auth import requires_roles
 from app.services.user_service import UserService
 from app.utils.auth import token_required
 
@@ -74,4 +75,18 @@ def protected_route():
     return jsonify({
         "message": "Access granted!",
         "user_id": request.user_id
+    }), 200
+
+
+@users_bp.route("/guild-leader-only", methods=["GET"])
+@token_required
+@requires_roles("guild_leader")
+def guild_leader_only():
+    """
+    Only accessible by users with the 'guild_leader' role.
+    """
+    return jsonify({
+        "message": "Welcome Guild Leader!",
+        "user_id": request.user_id,
+        "role": request.user_role
     }), 200
