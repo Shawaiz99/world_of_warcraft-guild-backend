@@ -27,6 +27,8 @@ instance/
 .coverage
 htmlcov/
 .pytest_cache/
+reset_db.py
+run.py
 
 # IDE files
 .idea/
@@ -43,9 +45,6 @@ htmlcov/
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# Ignore development-only test scripts
-app/dev/
 
 #Ignore the pyache in the utils
 *.pyc
