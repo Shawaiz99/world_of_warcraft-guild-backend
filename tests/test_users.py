@@ -2,6 +2,7 @@ import pytest
 from flask import Flask
 from app import create_app
 from app.extensions import db
+from app.models.user import User, RoleEnum
 
 
 @pytest.fixture
@@ -27,6 +28,7 @@ def test_ping(client):
     assert res.status_code == 200
     assert res.get_json() == {"status": "ok"}
 
+
 def test_user_registration(client):
     # Given
     user_data = {
@@ -46,3 +48,120 @@ def test_user_registration(client):
     assert data["role"] == "member"  # default role
     assert "id" in data
     assert "created_at" in data
+    assert "password" not in data  # Ensure password is not exposed
+
+
+def test_login_success(client):
+    # First, register a user
+    client.post("/api/v1/register", json={
+        "username": "loginuser",
+        "email": "login@test.com",
+        "password": "mypassword"
+    })
+
+    # Then, try logging in
+    res = client.post("/api/v1/login", json={
+        "email": "login@test.com",
+        "password": "mypassword"
+    })
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert "token" in data
+    assert data["user"]["email"] == "login@test.com"
+    assert data["user"]["username"] == "loginuser"
+
+
+def test_login_wrong_password(client):
+    client.post("/api/v1/register", json={
+        "username": "wrongpassuser",
+        "email": "wrongpass@test.com",
+        "password": "correctpassword"
+    })
+
+    res = client.post("/api/v1/login", json={
+        "email": "wrongpass@test.com",
+        "password": "wrongpassword"
+    })
+
+    assert res.status_code == 401
+    assert res.get_json()["error"] == "Invalid email or password"
+
+
+def test_login_nonexistent_email(client):
+    res = client.post("/api/v1/login", json={
+        "email": "nonexistent@test.com",
+        "password": "whatever"
+    })
+
+    assert res.status_code == 401
+    assert res.get_json()["error"] == "Invalid email or password"
+
+
+def test_login_missing_fields(client):
+    res = client.post("/api/v1/login", json={
+        "email": "missing@test.com"
+        # password is missing
+    })
+
+    assert res.status_code == 400
+    assert res.get_json()["error"] == "Missing email or password"
+
+
+def test_guild_leader_can_access(client):
+    # Register as a guild leader
+    client.post("/api/v1/register", json={
+        "username": "guildleader",
+        "email": "leader@test.com",
+        "password": "leaderpass"
+    })
+
+    # Manually promote to guild leader via SQL or mock
+    with client.application.app_context():
+        user = db.session.execute(db.select(User).filter_by(
+            email="leader@test.com")).scalar_one()
+        user.role = RoleEnum.guild_leader
+        db.session.commit()
+
+    # Login to get token
+    res = client.post("/api/v1/login", json={
+        "email": "leader@test.com",
+        "password": "leaderpass"
+    })
+    token = res.get_json()["token"]
+
+    # Access protected route
+    res = client.get("/api/v1/guild-leader-only", headers={
+        "Authorization": f"Bearer {token}"
+    })
+    assert res.status_code == 200
+    assert "Welcome Guild Leader!" in res.get_json()["message"]
+
+
+def test_member_cannot_access_guild_leader_only(client):
+    # Register as regular member
+    client.post("/api/v1/register", json={
+        "username": "normaluser",
+        "email": "member@test.com",
+        "password": "memberpass"
+    })
+
+    # Login to get token
+    res = client.post("/api/v1/login", json={
+        "email": "member@test.com",
+        "password": "memberpass"
+    })
+    token = res.get_json()["token"]
+
+    # Try accessing restricted route
+    res = client.get("/api/v1/guild-leader-only", headers={
+        "Authorization": f"Bearer {token}"
+    })
+    assert res.status_code == 403
+    assert res.get_json()["error"] == "Forbidden: Insufficient role"
+
+
+def test_protected_route_without_token(client):
+    res = client.get("/api/v1/guild-leader-only")
+    assert res.status_code == 401
+    assert res.get_json()["error"] == "Token is missing!"
