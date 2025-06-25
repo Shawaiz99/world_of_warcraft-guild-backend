@@ -27,7 +27,7 @@ class User(db.Model):
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    guild_id = mapped_column(Integer, ForeignKey("guilds.id"), nullable=True)
+    guild_id = mapped_column(Integer, ForeignKey("guilds.id", use_alter=True), nullable=True)
     guild = relationship("Guild", back_populates="members", foreign_keys=[guild_id])
 
 

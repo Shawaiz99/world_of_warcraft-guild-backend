@@ -12,7 +12,7 @@ class GuildService:
             raise ValueError("A guild with that name already exists.")
 
         # Check if the user is already in a guild
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)  # Updated from User.query.get
         if user is None:
             raise ValueError("User not found.")
         if user.guild_id is not None:

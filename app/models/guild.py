@@ -10,7 +10,7 @@ class Guild(db.Model):
     id = mapped_column(Integer, primary_key=True)
     name = mapped_column(String(100), nullable=False, unique=True)
     description = mapped_column(String(255))
-    created_by = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by = mapped_column(Integer, ForeignKey("users.id", use_alter=True), nullable=False)
     created_at = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
