@@ -1,23 +1,38 @@
 from app.models.guild import Guild
+from app.models.user import User, RoleEnum
 from app.extensions import db
-from app.models.user import User
+
 
 class GuildService:
     @staticmethod
-    def create_guild(name: str, description: str, creator_id: int) -> Guild:
-        """
-        Creates a new guild and assigns the creator as the guild leader.
-        """
-        if db.session.execute(db.select(Guild).filter_by(name=name)).scalar():
-            raise ValueError("A guild with this name already exists.")
+    def create_guild(name: str, description: str, user_id: int) -> Guild:
+        # Check if a guild with the same name already exists
+        existing_guild = Guild.query.filter_by(name=name).first()
+        if existing_guild:
+            raise ValueError("A guild with that name already exists.")
 
-        guild = Guild(name=name, description=description, created_by=creator_id)
-        db.session.add(guild)
-        db.session.flush()  # Assigns guild.id before committing
+        # Check if the user is already in a guild
+        user = User.query.get(user_id)
+        if user is None:
+            raise ValueError("User not found.")
+        if user.guild_id is not None:
+            raise ValueError("User is already in a guild.")
 
-        user = db.session.execute(db.select(User).filter_by(id=creator_id)).scalar_one()
-        user.guild_id = guild.id
-        user.role = user.role  # Keep same role unless you want to force 'guild_leader'
+        # Create the new guild
+        new_guild = Guild(
+            name=name,
+            description=description,
+            created_by=user_id
+        )
 
+        # Add the user to the guild as a member
+        user.guild = new_guild
+
+        # Promote the user to guild leader
+        user.role = RoleEnum.guild_leader
+
+        # Save everything to the database
+        db.session.add(new_guild)
         db.session.commit()
-        return guild
+
+        return new_guild

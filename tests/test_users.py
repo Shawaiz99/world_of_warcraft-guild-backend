@@ -5,6 +5,7 @@ from app.extensions import db
 from app.models.user import User, RoleEnum
 
 
+
 @pytest.fixture
 def app():
     app = create_app("testing")  # Define "testing" config later
@@ -165,3 +166,36 @@ def test_protected_route_without_token(client):
     res = client.get("/api/v1/guild-leader-only")
     assert res.status_code == 401
     assert res.get_json()["error"] == "Token is missing!"
+
+
+def test_creator_is_promoted_to_guild_leader(client):
+    # Step 1: Register the user
+    client.post("/api/v1/register", json={
+        "username": "guildadmin",
+        "email": "admin@test.com",
+        "password": "securepass"
+    })
+
+    # Step 2: Login to get token
+    res = client.post("/api/v1/login", json={
+        "email": "admin@test.com",
+        "password": "securepass"
+    })
+    token = res.get_json()["token"]
+
+    # Step 3: Create a guild
+    res = client.post("/api/v1/guilds", json={
+        "name": "Test Guild",
+        "description": "Guild created in test"
+    }, headers={
+        "Authorization": f"Bearer {token}"
+    })
+
+    assert res.status_code == 201
+
+    # Step 4: Verify user is now a guild leader and assigned to the new guild
+
+    with client.application.app_context():
+        user = db.session.get(User, 1)
+        assert user.role == RoleEnum.guild_leader
+        assert user.guild_id == 1
