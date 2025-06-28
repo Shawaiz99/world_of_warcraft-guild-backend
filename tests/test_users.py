@@ -5,7 +5,6 @@ from app.extensions import db
 from app.models.user import User, RoleEnum
 
 
-
 @pytest.fixture
 def app():
     app = create_app("testing")  # Define "testing" config later
@@ -199,3 +198,183 @@ def test_creator_is_promoted_to_guild_leader(client):
         user = db.session.get(User, 1)
         assert user.role == RoleEnum.guild_leader
         assert user.guild_id == 1
+
+
+def test_get_guild_by_id(client):
+    # Register and login
+    client.post("/api/v1/register", json={
+        "username": "viewer",
+        "email": "viewer@test.com",
+        "password": "testpass"
+    })
+
+    login_res = client.post("/api/v1/login", json={
+        "email": "viewer@test.com",
+        "password": "testpass"
+    })
+    token = login_res.get_json()["token"]
+
+    # Create a guild
+    client.post("/api/v1/guilds", json={
+        "name": "Visible Guild",
+        "description": "This should be viewable"
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    # Get the guild details
+    res = client.get("/api/v1/guilds/1", headers={
+        "Authorization": f"Bearer {token}"
+    })
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["name"] == "Visible Guild"
+    assert data["id"] == 1
+
+
+def test_get_guild_by_invalid_id_returns_404(client):
+    # Register and login
+    client.post("/api/v1/register", json={
+        "username": "ghost",
+        "email": "ghost@test.com",
+        "password": "ghostpass"
+    })
+    login_res = client.post("/api/v1/login", json={
+        "email": "ghost@test.com",
+        "password": "ghostpass"
+    })
+    token = login_res.get_json()["token"]
+
+    # Try to access a non-existent guild
+    res = client.get("/api/v1/guilds/999", headers={
+        "Authorization": f"Bearer {token}"
+    })
+
+    assert res.status_code == 404
+    assert res.get_json()["error"] == "Guild not found"
+
+
+def test_duplicate_guild_name_fails(client):
+    # Register and login
+    client.post("/api/v1/register", json={
+        "username": "dupeuser",
+        "email": "dupe@test.com",
+        "password": "pass123"
+    })
+    login_res = client.post("/api/v1/login", json={
+        "email": "dupe@test.com",
+        "password": "pass123"
+    })
+    token = login_res.get_json()["token"]
+
+    # Create first guild
+    client.post("/api/v1/guilds", json={
+        "name": "Duped Guild",
+        "description": "First attempt"
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    # Register a second user
+    client.post("/api/v1/register", json={
+        "username": "dupeuser2",
+        "email": "dupe2@test.com",
+        "password": "pass123"
+    })
+    login_res_2 = client.post("/api/v1/login", json={
+        "email": "dupe2@test.com",
+        "password": "pass123"
+    })
+    token2 = login_res_2.get_json()["token"]
+
+    # Try to create guild with the same name
+    res = client.post("/api/v1/guilds", json={
+        "name": "Duped Guild",
+        "description": "Should fail"
+    }, headers={"Authorization": f"Bearer {token2}"})
+
+    assert res.status_code == 400
+    assert "already exists" in res.get_json()["error"]
+
+
+def test_user_cannot_create_multiple_guilds(client):
+    # Register and login
+    client.post("/api/v1/register", json={
+        "username": "repeatuser",
+        "email": "repeat@test.com",
+        "password": "repeatpass"
+    })
+    login_res = client.post("/api/v1/login", json={
+        "email": "repeat@test.com",
+        "password": "repeatpass"
+    })
+    token = login_res.get_json()["token"]
+
+    # First guild creation
+    client.post("/api/v1/guilds", json={
+        "name": "First Guild",
+        "description": "Allowed"
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    # Second guild creation (should fail)
+    res = client.post("/api/v1/guilds", json={
+        "name": "Second Guild",
+        "description": "Should be blocked"
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    assert res.status_code == 400
+    assert "already in a guild" in res.get_json()["error"]
+
+
+def test_guild_creation_missing_name(client):
+    # Register and login
+    client.post("/api/v1/register", json={
+        "username": "nonamer",
+        "email": "noname@test.com",
+        "password": "nonamepass"
+    })
+    login_res = client.post("/api/v1/login", json={
+        "email": "noname@test.com",
+        "password": "nonamepass"
+    })
+    token = login_res.get_json()["token"]
+
+    # Missing name in payload
+    res = client.post("/api/v1/guilds", json={
+        "description": "Missing name field"
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    assert res.status_code == 400
+    assert res.get_json()["error"] == "Guild name is required"
+
+
+def test_registration_missing_fields(client):
+    # Missing password
+    res1 = client.post("/api/v1/register", json={
+        "username": "incomplete",
+        "email": "incomplete@test.com"
+    })
+    assert res1.status_code == 400
+    assert res1.get_json()["error"] == "Missing fields"
+
+    # Missing email
+    res2 = client.post("/api/v1/register", json={
+        "username": "noemail",
+        "password": "pass123"
+    })
+    assert res2.status_code == 400
+    assert res2.get_json()["error"] == "Missing fields"
+
+    # Missing username
+    res3 = client.post("/api/v1/register", json={
+        "email": "nouser@test.com",
+        "password": "pass123"
+    })
+    assert res3.status_code == 400
+    assert res3.get_json()["error"] == "Missing fields"
+
+
+def test_guild_creation_requires_auth(client):
+    res = client.post("/api/v1/guilds", json={
+        "name": "Unauthorized Guild",
+        "description": "No token should block this"
+    })
+    assert res.status_code == 401
+    assert res.get_json()["error"] == "Token is missing!"

@@ -1,3 +1,4 @@
+from typing import Optional
 from app.models.guild import Guild
 from app.models.user import User, RoleEnum
 from app.extensions import db
@@ -36,3 +37,17 @@ class GuildService:
         db.session.commit()
 
         return new_guild
+
+
+    @staticmethod
+    def get_guild_by_id(guild_id: int) -> Optional[Guild]:
+        """
+        Retrieves a guild by its unique ID.
+
+        Args:
+            guild_id (int): The ID of the guild to retrieve.
+
+        Returns:
+            Guild or None: The Guild object if found, otherwise None.
+        """
+        return db.session.get(Guild, guild_id)

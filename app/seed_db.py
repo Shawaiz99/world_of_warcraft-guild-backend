@@ -21,7 +21,7 @@ def run():
                 user = User(
                     username=username,
                     email=email,
-                    password="placeholder123"  # 🔐 Not hashed; for dev only
+                    password="placeholder123"  # Not hashed; for dev only
                 )
                 db.session.add(user)
 

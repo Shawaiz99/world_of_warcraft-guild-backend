@@ -35,3 +35,19 @@ def create_guild():
     except ValueError as ve:
         # If something went wrong (like name already taken), return the error
         return jsonify({"error": str(ve)}), 400
+
+
+@guilds_bp.route("/guilds/<int:guild_id>", methods=["GET"])
+@token_required
+def get_guild_details(guild_id):
+    guild = GuildService.get_guild_by_id(guild_id)
+    if not guild:
+        return jsonify({"error": "Guild not found"}), 404
+
+    return jsonify({
+        "id": guild.id,
+        "name": guild.name,
+        "description": guild.description,
+        "created_by": guild.created_by,
+        "created_at": guild.created_at.isoformat()
+    })
