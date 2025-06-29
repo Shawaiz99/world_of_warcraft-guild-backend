@@ -38,12 +38,14 @@ def create_guild():
 
 
 @guilds_bp.route("/guilds/<int:guild_id>", methods=["GET"])
-@token_required
+@token_required  # Logged-in users can view guild details
 def get_guild_details(guild_id):
+    # Attempt to fetch the guild by ID
     guild = GuildService.get_guild_by_id(guild_id)
     if not guild:
         return jsonify({"error": "Guild not found"}), 404
 
+    # Return basic guild info if found
     return jsonify({
         "id": guild.id,
         "name": guild.name,
@@ -51,3 +53,20 @@ def get_guild_details(guild_id):
         "created_by": guild.created_by,
         "created_at": guild.created_at.isoformat()
     })
+
+
+@guilds_bp.route("/guilds/<int:guild_id>/members", methods=["GET"])
+@token_required  # Users must be logged in to view guild members
+def get_guild_members(guild_id):
+    """
+    Returns a list of users who are members of the specified guild.
+    """
+    # Fetch the list of members from the service layer
+    members = GuildService.get_guild_members(guild_id)
+
+    # If guild doesn't exist or has no members, return 404
+    if members is None:
+        return jsonify({"error": "Guild not found"}), 404
+
+    # Return the list of serialized users
+    return jsonify([member.serialize() for member in members])
