@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from app.models.guild import Guild
 from app.models.user import User, RoleEnum
 from app.extensions import db
@@ -13,7 +13,7 @@ class GuildService:
             raise ValueError("A guild with that name already exists.")
 
         # Check if the user is already in a guild
-        user = db.session.get(User, user_id)  # Updated from User.query.get
+        user = db.session.get(User, user_id)
         if user is None:
             raise ValueError("User not found.")
         if user.guild_id is not None:
@@ -38,16 +38,21 @@ class GuildService:
 
         return new_guild
 
-
     @staticmethod
     def get_guild_by_id(guild_id: int) -> Optional[Guild]:
-        """
-        Retrieves a guild by its unique ID.
-
-        Args:
-            guild_id (int): The ID of the guild to retrieve.
-
-        Returns:
-            Guild or None: The Guild object if found, otherwise None.
-        """
+        # Fetch the guild by its ID
         return db.session.get(Guild, guild_id)
+
+    @staticmethod
+    def get_guild_members(guild_id: int) -> Optional[List[User]]:
+        """
+        Returns a list of users who belong to the specified guild.
+        If the guild doesn't exist, returns None.
+        """
+        guild = db.session.get(Guild, guild_id)
+
+        if not guild:
+            return None
+
+        # Return all users related to this guild
+        return guild.members

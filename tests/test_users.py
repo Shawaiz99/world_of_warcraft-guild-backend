@@ -378,3 +378,44 @@ def test_guild_creation_requires_auth(client):
     })
     assert res.status_code == 401
     assert res.get_json()["error"] == "Token is missing!"
+
+
+def test_list_guild_members(client):
+    # Step 1: Register and log in a user who will create the guild
+    client.post("/api/v1/register", json={
+        "username": "creator",
+        "email": "creator@test.com",
+        "password": "securepass"
+    })
+
+    login_res = client.post("/api/v1/login", json={
+        "email": "creator@test.com",
+        "password": "securepass"
+    })
+    token = login_res.get_json()["token"]
+
+    # Step 2: Create a guild
+    client.post("/api/v1/guilds", json={
+        "name": "Pytest Guild",
+        "description": "Guild for testing"
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    # Step 3: Call the /guilds/1/members endpoint
+    res = client.get("/api/v1/guilds/1/members", headers={
+        "Authorization": f"Bearer {token}"
+    })
+
+    assert res.status_code == 200
+    members = res.get_json()
+    assert isinstance(members, list)
+    assert len(members) == 1
+    assert members[0]["username"] == "creator"
+    assert members[0]["role"] == "guild_leader"
+    assert members[0]["guild_id"] == 1
+
+
+def test_list_guild_members_unauthorized(client):
+    # Try accessing members list without token
+    res = client.get("/api/v1/guilds/1/members")
+    assert res.status_code == 401
+    assert res.get_json()["error"] == "Token is missing!"
