@@ -56,3 +56,36 @@ class GuildService:
 
         # Return all users related to this guild
         return guild.members
+
+    @staticmethod
+    def update_guild(guild_id: int, user_id: int, name: Optional[str],
+                     description: Optional[str]) -> Guild:
+        """
+        Updates the name and/or description of a guild.
+        Only the user who created the guild (guild leader) can update it.
+        """
+
+        # Step 1: Fetch the guild by its ID
+        guild = db.session.get(Guild, guild_id)
+        if not guild:
+            raise ValueError("Guild not found")
+
+        # Step 2: Ensure the user making the request is the guild creator
+        if guild.created_by != int(user_id):
+            raise ValueError("You do not have permission to update this guild")
+
+        # Step 3: Check for name duplication (if name is changing)
+        if name and name != guild.name:
+            existing = Guild.query.filter_by(name=name).first()
+            if existing:
+                raise ValueError("Another guild with that name already exists")
+            guild.name = name  # update name
+
+        # Step 4: Update description if provided
+        if description:
+            guild.description = description
+
+        # Step 5: Persist changes
+        db.session.commit()
+
+        return guild
