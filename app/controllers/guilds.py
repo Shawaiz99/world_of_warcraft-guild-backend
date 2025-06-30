@@ -70,3 +70,37 @@ def get_guild_members(guild_id):
 
     # Return the list of serialized users
     return jsonify([member.serialize() for member in members])
+
+
+@guilds_bp.route("/guilds/<int:guild_id>", methods=["PATCH"])
+@token_required
+def update_guild(guild_id):
+    """
+    Allows a guild leader to update the name and/or description of their guild.
+    Only the creator (guild leader) can make changes.
+    """
+    data = request.get_json() or {}
+    new_name = data.get("name")
+    new_description = data.get("description")
+
+    # Make sure at least one field was provided
+    if not new_name and not new_description:
+        return jsonify({"error": "No update fields provided"}), 400
+
+    try:
+        updated_guild = GuildService.update_guild(
+            guild_id=guild_id,
+            user_id=request.user_id,  # comes from @token_required
+            name=new_name,
+            description=new_description
+        )
+        return jsonify({
+            "id": updated_guild.id,
+            "name": updated_guild.name,
+            "description": updated_guild.description,
+            "created_by": updated_guild.created_by,
+            "created_at": updated_guild.created_at.isoformat()
+        }), 200
+
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400

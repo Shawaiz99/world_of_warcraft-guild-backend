@@ -419,3 +419,35 @@ def test_list_guild_members_unauthorized(client):
     res = client.get("/api/v1/guilds/1/members")
     assert res.status_code == 401
     assert res.get_json()["error"] == "Token is missing!"
+
+
+def test_guild_leader_can_update_guild(client):
+    # Step 1: Register and log in
+    client.post("/api/v1/register", json={
+        "username": "leader",
+        "email": "leader@test.com",
+        "password": "leaderpass"
+    })
+    login_res = client.post("/api/v1/login", json={
+        "email": "leader@test.com",
+        "password": "leaderpass"
+    })
+    token = login_res.get_json()["token"]
+
+    # Step 2: Create a guild
+    client.post("/api/v1/guilds", json={
+        "name": "Old Guild Name",
+        "description": "Old description"
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    # Step 3: Update the guild
+    res = client.patch("/api/v1/guilds/1", json={
+        "name": "New Guild Name",
+        "description": "Updated description"
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["name"] == "New Guild Name"
+    assert data["description"] == "Updated description"
+    assert data["id"] == 1
