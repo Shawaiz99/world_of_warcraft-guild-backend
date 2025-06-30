@@ -527,3 +527,93 @@ def test_guild_leader_cannot_leave_guild(client):
 
     assert res.status_code == 400
     assert "must transfer leadership" in res.get_json()["error"]
+
+
+def test_guild_leader_can_transfer_leadership(client):
+    # Register and login as the current leader
+    client.post("/api/v1/register", json={
+        "username": "leader",
+        "email": "leader@test.com",
+        "password": "securepass"
+    })
+    login_res = client.post("/api/v1/login", json={
+        "email": "leader@test.com",
+        "password": "securepass"
+    })
+    token1 = login_res.get_json()["token"]
+
+    # Create a guild
+    client.post("/api/v1/guilds", json={
+        "name": "Transfer Guild",
+        "description": "Guild for testing leadership transfer"
+    }, headers={"Authorization": f"Bearer {token1}"})
+
+    # Register and login the new leader
+    client.post("/api/v1/register", json={
+        "username": "newleader",
+        "email": "newleader@test.com",
+        "password": "securepass"
+    })
+    login2 = client.post("/api/v1/login", json={
+        "email": "newleader@test.com",
+        "password": "securepass"
+    })
+    token2 = login2.get_json()["token"]
+
+    # Add newleader to the same guild manually
+    with client.application.app_context():
+        from app.models.user import User
+        leader = db.session.get(User, 1)
+        new_leader = db.session.get(User, 2)
+        new_leader.guild_id = leader.guild_id
+        db.session.commit()
+
+    # Transfer leadership to newleader
+    res = client.post("/api/v1/guilds/1/transfer-leadership", json={
+        "new_leader_id": 2
+    }, headers={"Authorization": f"Bearer {token1}"})
+
+    assert res.status_code == 200
+    assert "successfully transferred" in res.get_json()["message"]
+
+    # Verify new roles
+    with client.application.app_context():
+        leader = db.session.get(User, 1)
+        new_leader = db.session.get(User, 2)
+        assert leader.role == RoleEnum.member
+        assert new_leader.role == RoleEnum.guild_leader
+
+
+def test_cannot_transfer_leadership_to_non_member(client):
+    # Register and login as leader
+    client.post("/api/v1/register", json={
+        "username": "soleleader",
+        "email": "soleleader@test.com",
+        "password": "securepass"
+    })
+    login1 = client.post("/api/v1/login", json={
+        "email": "soleleader@test.com",
+        "password": "securepass"
+    })
+    token = login1.get_json()["token"]
+
+    # Create a guild
+    client.post("/api/v1/guilds", json={
+        "name": "Solo Guild",
+        "description": "Testing invalid transfer"
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    # Register new user who is NOT in the guild
+    client.post("/api/v1/register", json={
+        "username": "outsider",
+        "email": "outsider@test.com",
+        "password": "securepass"
+    })
+
+    # Attempt to transfer leadership
+    res = client.post("/api/v1/guilds/1/transfer-leadership", json={
+        "new_leader_id": 2
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    assert res.status_code == 400
+    assert "must be a member of the same guild" in res.get_json()["error"]
