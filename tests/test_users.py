@@ -451,3 +451,79 @@ def test_guild_leader_can_update_guild(client):
     assert data["name"] == "New Guild Name"
     assert data["description"] == "Updated description"
     assert data["id"] == 1
+
+
+def test_member_can_leave_guild(client):
+    # Register and login
+    client.post("/api/v1/register", json={
+        "username": "member",
+        "email": "member@test.com",
+        "password": "securepass"
+    })
+    login_res = client.post("/api/v1/login", json={
+        "email": "member@test.com",
+        "password": "securepass"
+    })
+    token = login_res.get_json()["token"]
+
+    # Create a guild
+    client.post("/api/v1/guilds", json={
+        "name": "Temp Guild",
+        "description": "Temporary guild"
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    # Register a second user who will join the guild
+    client.post("/api/v1/register", json={
+        "username": "seconduser",
+        "email": "second@test.com",
+        "password": "securepass"
+    })
+    login2 = client.post("/api/v1/login", json={
+        "email": "second@test.com",
+        "password": "securepass"
+    })
+    token2 = login2.get_json()["token"]
+
+    # Manually add second user to the guild
+    with client.application.app_context():
+        from app.models.user import User
+        leader = db.session.get(User, 1)
+        second = db.session.get(User, 2)
+        second.guild_id = leader.guild_id
+        db.session.commit()
+
+    # Second user leaves the guild
+    res = client.delete("/api/v1/guilds/1/leave", headers={
+        "Authorization": f"Bearer {token2}"
+    })
+
+    assert res.status_code == 200
+    assert "successfully left" in res.get_json()["message"]
+
+
+def test_guild_leader_cannot_leave_guild(client):
+    # Register and login
+    client.post("/api/v1/register", json={
+        "username": "leader",
+        "email": "leader@test.com",
+        "password": "securepass"
+    })
+    login_res = client.post("/api/v1/login", json={
+        "email": "leader@test.com",
+        "password": "securepass"
+    })
+    token = login_res.get_json()["token"]
+
+    # Create a guild
+    client.post("/api/v1/guilds", json={
+        "name": "Leader Guild",
+        "description": "Guild with leader"
+    }, headers={"Authorization": f"Bearer {token}"})
+
+    # Attempt to leave as guild leader
+    res = client.delete("/api/v1/guilds/1/leave", headers={
+        "Authorization": f"Bearer {token}"
+    })
+
+    assert res.status_code == 400
+    assert "must transfer leadership" in res.get_json()["error"]

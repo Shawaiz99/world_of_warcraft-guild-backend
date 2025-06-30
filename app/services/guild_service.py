@@ -89,3 +89,23 @@ class GuildService:
         db.session.commit()
 
         return guild
+
+    @staticmethod
+    def leave_guild(user_id: int, guild_id: int) -> None:
+        """
+        Allows a user to leave a guild, unless they are the guild leader.
+        """
+        user = db.session.get(User, user_id)
+        if not user:
+            raise ValueError("User not found")
+
+        if user.guild_id != guild_id:
+            raise ValueError("You are not a member of this guild")
+
+        if user.role == RoleEnum.guild_leader:
+            raise ValueError(
+                "Guild leaders must transfer leadership before leaving.")
+
+        # Remove user from the guild
+        user.guild_id = None
+        db.session.commit()
