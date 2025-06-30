@@ -118,3 +118,33 @@ def leave_guild(guild_id):
         return jsonify({"message": "You have successfully left the guild."}), 200
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 400
+
+
+@guilds_bp.route("/guilds/<int:guild_id>/transfer-leadership", methods=["POST"])
+@token_required  # Only authenticated users can perform this action
+def transfer_guild_leadership(guild_id):
+    """
+    Allows the current guild leader to transfer leadership to another member of the guild.
+    Expects 'new_leader_id' in the JSON payload.
+    """
+    data = request.get_json() or {}
+    try:
+        new_leader_id = int(data.get("new_leader_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "New leader ID must be a valid integer"}), 400
+
+    if not new_leader_id:
+        return jsonify({"error": "New leader ID is required"}), 400
+
+    try:
+        # Attempt the leadership transfer via the service layer
+        GuildService.transfer_leadership(
+            guild_id=guild_id,
+            current_leader_id=request.user_id,
+            new_leader_id=new_leader_id
+        )
+
+        return jsonify({"message": "Guild leadership has been successfully transferred."}), 200
+
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
