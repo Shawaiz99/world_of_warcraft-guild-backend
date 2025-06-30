@@ -104,3 +104,17 @@ def update_guild(guild_id):
 
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 400
+
+
+@guilds_bp.route("/guilds/<int:guild_id>/leave", methods=["DELETE"])
+@token_required  # Ensure the user is authenticated
+def leave_guild(guild_id):
+    """
+    Allows a logged-in user to leave their current guild.
+    Guild leaders are not allowed to leave unless they transfer leadership (not yet implemented).
+    """
+    try:
+        GuildService.leave_guild(user_id=request.user_id, guild_id=guild_id)
+        return jsonify({"message": "You have successfully left the guild."}), 200
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
