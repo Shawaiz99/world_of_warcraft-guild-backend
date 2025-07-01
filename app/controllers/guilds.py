@@ -128,13 +128,16 @@ def transfer_guild_leadership(guild_id):
     Expects 'new_leader_id' in the JSON payload.
     """
     data = request.get_json() or {}
+    new_leader_raw = data.get("new_leader_id")
+
+    # Check presence first before trying to convert to int
+    if new_leader_raw is None:
+        return jsonify({"error": "New leader ID is required"}), 400
+
     try:
-        new_leader_id = int(data.get("new_leader_id"))
+        new_leader_id = int(new_leader_raw)
     except (TypeError, ValueError):
         return jsonify({"error": "New leader ID must be a valid integer"}), 400
-
-    if not new_leader_id:
-        return jsonify({"error": "New leader ID is required"}), 400
 
     try:
         # Attempt the leadership transfer via the service layer
@@ -146,5 +149,23 @@ def transfer_guild_leadership(guild_id):
 
         return jsonify({"message": "Guild leadership has been successfully transferred."}), 200
 
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
+
+
+@guilds_bp.route("/guilds/<int:guild_id>/members/<int:member_id>", methods=["DELETE"])
+@token_required  # Only logged-in users can access
+def kick_guild_member(guild_id, member_id):
+    """
+    Allows a guild leader to kick a member from their guild.
+    Only the leader of the guild can perform this action.
+    """
+    try:
+        GuildService.kick_member(
+            guild_id=guild_id,
+            leader_id=request.user_id,  # from token_required
+            member_id=member_id
+        )
+        return jsonify({"message": "Member has been removed from the guild."}), 200
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 400
