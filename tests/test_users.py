@@ -617,3 +617,57 @@ def test_cannot_transfer_leadership_to_non_member(client):
 
     assert res.status_code == 400
     assert "must be a member of the same guild" in res.get_json()["error"]
+
+
+def test_guild_leader_can_kick_member(client):
+    # Step 1: Register and login as guild leader
+    client.post("/api/v1/register", json={
+        "username": "leader",
+        "email": "leader@test.com",
+        "password": "securepass"
+    })
+    login_res = client.post("/api/v1/login", json={
+        "email": "leader@test.com",
+        "password": "securepass"
+    })
+    leader_token = login_res.get_json()["token"]
+
+    # Step 2: Create a guild
+    client.post("/api/v1/guilds", json={
+        "name": "Kickable Guild",
+        "description": "Testing kicking members"
+    }, headers={"Authorization": f"Bearer {leader_token}"})
+
+    # Step 3: Register and login a second user
+    client.post("/api/v1/register", json={
+        "username": "kickeduser",
+        "email": "kicked@test.com",
+        "password": "securepass"
+    })
+    login_res_2 = client.post("/api/v1/login", json={
+        "email": "kicked@test.com",
+        "password": "securepass"
+    })
+    kicked_token = login_res_2.get_json()["token"]
+
+    # Step 4: Manually add kicked user to the guild
+    with client.application.app_context():
+        from app.models.user import User
+        leader = db.session.get(User, 1)
+        kicked = db.session.get(User, 2)
+        kicked.guild_id = leader.guild_id
+        db.session.commit()
+
+    # Step 5: Kick the member
+    res = client.delete("/api/v1/guilds/1/members/2", headers={
+        "Authorization": f"Bearer {leader_token}"
+    })
+
+    assert res.status_code == 200
+    assert res.get_json()[
+        "message"] == "Member has been removed from the guild."
+
+    # Step 6: Confirm kicked user's guild_id is now None
+    with client.application.app_context():
+        kicked = db.session.get(User, 2)
+        assert kicked.guild_id is None

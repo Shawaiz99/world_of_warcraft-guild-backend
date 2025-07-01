@@ -141,3 +141,30 @@ class GuildService:
         guild.created_by = new_leader_id
 
         db.session.commit()
+
+    @staticmethod
+    def kick_member(guild_id: int, leader_id: int, member_id: int) -> None:
+        """
+        Removes a member from the guild if requested by the guild leader.
+        """
+        guild = db.session.get(Guild, guild_id)
+        if not guild:
+            raise ValueError("Guild not found")
+
+        leader = db.session.get(User, leader_id)
+        if not leader or leader.role != RoleEnum.guild_leader:
+            raise ValueError("Only guild leaders can kick members")
+
+        if leader.guild_id != guild_id:
+            raise ValueError("You are not the leader of this guild")
+
+        member = db.session.get(User, member_id)
+        if not member or member.guild_id != guild_id:
+            raise ValueError("That user is not a member of your guild")
+
+        if member_id == leader_id:
+            raise ValueError("You cannot kick yourself (the guild leader)")
+
+        # Remove the member from the guild
+        member.guild_id = None
+        db.session.commit()
