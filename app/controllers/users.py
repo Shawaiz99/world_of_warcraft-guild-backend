@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
-from app.utils.auth import requires_roles
+from app.utils.auth import requires_roles, token_required
 from app.services.user_service import UserService
-from app.utils.auth import token_required
+import traceback
 
 users_bp = Blueprint("users_bp", __name__)
 
@@ -17,7 +17,6 @@ def register():
     email = data.get("email")
     password = data.get("password")
 
-    # Basic validation
     if not username or not email or not password:
         return jsonify({"error": "Missing fields"}), 400
 
@@ -28,18 +27,34 @@ def register():
         return jsonify({"error": str(ve)}), 400
 
 
+@users_bp.route("/debug", methods=["GET"])
+def debug_ping():
+    print("📡 Debug route hit")
+    return jsonify({"status": "backend is reachable"}), 200
+
+
 @users_bp.route("/users/<int:user_id>", methods=["GET"])
+@token_required
 def get_user(user_id):
     """
     Fetch a user by their ID.
     Returns 404 if not found.
     """
-    user = UserService.get_user_by_id(user_id)
+    try:
+        print(f"📥 [GET] /users/{user_id} requested by {request.user_id}")
+        user = UserService.get_user_by_id(user_id)
 
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+        if not user:
+            print("❌ User not found")
+            return jsonify({"error": "User not found"}), 404
 
-    return user.serialize(), 200
+        print("✅ User found:", user.username)
+        return user.serialize(), 200
+
+    except Exception as e:
+        print("❌ Error in get_user route:", e)
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 
 @users_bp.route("/login", methods=["POST"])

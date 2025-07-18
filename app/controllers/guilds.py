@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.services.guild_service import GuildService
 from app.utils.auth import token_required
+import traceback
 
 # This blueprint handles all /api/v1/guilds routes
 guilds_bp = Blueprint("guilds", __name__)
@@ -9,21 +10,15 @@ guilds_bp = Blueprint("guilds", __name__)
 @guilds_bp.route("/guilds", methods=["POST"])
 @token_required  # Ensures only logged-in users can access this route
 def create_guild():
-    # Parse incoming JSON data
     data = request.get_json() or {}
     name = data.get("name")
     description = data.get("description")
 
-    # Check that a name was provided
     if not name:
         return jsonify({"error": "Guild name is required"}), 400
 
     try:
-        # Attempt to create a new guild using a service layer
-        # This method will handle checks like duplicate name or user already in a guild
         guild = GuildService.create_guild(name, description, request.user_id)
-
-        # If successful, return the new guild's data
         return jsonify({
             "id": guild.id,
             "name": guild.name,
@@ -33,26 +28,32 @@ def create_guild():
         }), 201
 
     except ValueError as ve:
-        # If something went wrong (like name already taken), return the error
         return jsonify({"error": str(ve)}), 400
 
 
 @guilds_bp.route("/guilds/<int:guild_id>", methods=["GET"])
 @token_required  # Logged-in users can view guild details
 def get_guild_details(guild_id):
-    # Attempt to fetch the guild by ID
-    guild = GuildService.get_guild_by_id(guild_id)
-    if not guild:
-        return jsonify({"error": "Guild not found"}), 404
+    print(f"📥 Fetching guild with ID: {guild_id}")
+    print(f"📥 [GET] /guilds/{guild_id} requested by user {request.user_id}")
 
-    # Return basic guild info if found
-    return jsonify({
-        "id": guild.id,
-        "name": guild.name,
-        "description": guild.description,
-        "created_by": guild.created_by,
-        "created_at": guild.created_at.isoformat()
-    })
+    try:
+        guild = GuildService.get_guild_by_id(guild_id)
+        if not guild:
+            return jsonify({"error": "Guild not found"}), 404
+
+        return jsonify({
+            "id": guild.id,
+            "name": guild.name,
+            "description": guild.description,
+            "created_by": guild.created_by,
+            "created_at": guild.created_at.isoformat()
+        })
+
+    except Exception as e:
+        print("❌ Unexpected error in get_guild_details:", e)
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 
 @guilds_bp.route("/guilds/<int:guild_id>/members", methods=["GET"])
@@ -61,14 +62,11 @@ def get_guild_members(guild_id):
     """
     Returns a list of users who are members of the specified guild.
     """
-    # Fetch the list of members from the service layer
     members = GuildService.get_guild_members(guild_id)
 
-    # If guild doesn't exist or has no members, return 404
     if members is None:
         return jsonify({"error": "Guild not found"}), 404
 
-    # Return the list of serialized users
     return jsonify([member.serialize() for member in members])
 
 
@@ -83,14 +81,13 @@ def update_guild(guild_id):
     new_name = data.get("name")
     new_description = data.get("description")
 
-    # Make sure at least one field was provided
     if not new_name and not new_description:
         return jsonify({"error": "No update fields provided"}), 400
 
     try:
         updated_guild = GuildService.update_guild(
             guild_id=guild_id,
-            user_id=request.user_id,  # comes from @token_required
+            user_id=request.user_id,
             name=new_name,
             description=new_description
         )
@@ -111,7 +108,7 @@ def update_guild(guild_id):
 def leave_guild(guild_id):
     """
     Allows a logged-in user to leave their current guild.
-    Guild leaders are not allowed to leave unless they transfer leadership (not yet implemented).
+    Guild leaders are not allowed to leave unless they transfer leadership.
     """
     try:
         GuildService.leave_guild(user_id=request.user_id, guild_id=guild_id)
@@ -130,7 +127,6 @@ def transfer_guild_leadership(guild_id):
     data = request.get_json() or {}
     new_leader_raw = data.get("new_leader_id")
 
-    # Check presence first before trying to convert to int
     if new_leader_raw is None:
         return jsonify({"error": "New leader ID is required"}), 400
 
@@ -140,13 +136,11 @@ def transfer_guild_leadership(guild_id):
         return jsonify({"error": "New leader ID must be a valid integer"}), 400
 
     try:
-        # Attempt the leadership transfer via the service layer
         GuildService.transfer_leadership(
             guild_id=guild_id,
             current_leader_id=request.user_id,
             new_leader_id=new_leader_id
         )
-
         return jsonify({"message": "Guild leadership has been successfully transferred."}), 200
 
     except ValueError as ve:
@@ -163,7 +157,7 @@ def kick_guild_member(guild_id, member_id):
     try:
         GuildService.kick_member(
             guild_id=guild_id,
-            leader_id=request.user_id,  # from token_required
+            leader_id=request.user_id,
             member_id=member_id
         )
         return jsonify({"message": "Member has been removed from the guild."}), 200
